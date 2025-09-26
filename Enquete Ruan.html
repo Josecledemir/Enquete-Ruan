@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chá de Revelação - Enquete</title>
+
+  <!-- Firebase compat (usamos compat para manter o código simples) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <style>
+    body{font-family:Arial, sans-serif;text-align:center;
+      background:linear-gradient(to right,#4a90e2,#f8a5c2);color:white;margin:0;padding:0}
+    header{background:rgba(0,0,0,0.35);padding:18px}
+    .container{margin-top:28px}
+    .inputs{display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
+    input[type="text"]{padding:8px;font-size:15px;border-radius:6px;border:none;width:200px}
+    button{font-size:17px;padding:10px 20px;margin:6px;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
+    .ruan{background:#2980b9;color:#fff}
+    .liliane{background:#f78fb3;color:#000}
+    #resultado{margin-top:20px;font-size:16px;background:rgba(0,0,0,0.45);display:inline-block;padding:14px;border-radius:10px;white-space:pre-line;min-width:300px;text-align:left}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Chá de Revelação - Enquete 🎉</h1>
+    <p>É com muito carinho que Ruan e Liliane convidam você para participar da nossa enquete.<br>
+      Independente se é menino ou menina, terá muito amor ❤️<br>Estamos muito ansiosos!
+    </p>
+  </header>
+
+  <div class="container">
+    <div class="inputs">
+      <input type="text" id="nomeUsuario" placeholder="Digite seu nome">
+      <input type="text" id="parentescoUsuario" placeholder="Parentesco (Ex: Tio, Amiga, Avó)">
+    </div>
+
+    <div>
+      <button class="ruan" onclick="votar('Ruan')">Vote no Ruan 💙</button>
+      <button class="liliane" onclick="votar('Liliane')">Vote na Liliane 🌸</button>
+    </div>
+
+    <div id="resultado">Carregando...</div>
+  </div>
+
+  <script>
+    // ========= SUBSTITUA com sua configuração do Firebase =========
+    const firebaseConfig = {
+      apiKey: "SUA_API_KEY",
+      authDomain: "SEU_PROJETO.firebaseapp.com",
+      databaseURL: "https://SEU_PROJETO.firebaseio.com",
+      projectId: "SEU_PROJETO",
+      storageBucket: "SEU_PROJETO.appspot.com",
+      messagingSenderId: "SEU_MESSAGING_ID",
+      appId: "SEU_APP_ID"
+    };
+    // =============================================================
+
+    // Inicializa Firebase
+    try {
+      firebase.initializeApp(firebaseConfig);
+    } catch (e) {
+      console.error("Erro ao inicializar Firebase:", e);
+      document.getElementById('resultado').innerText = "Erro ao inicializar Firebase. Verifique as chaves no código (console para detalhes).";
+    }
+    const db = firebase.database();
+
+    // Função de voto
+    function votar(nome) {
+      const nomeUsuario = document.getElementById("nomeUsuario").value.trim();
+      const parentescoUsuario = document.getElementById("parentescoUsuario").value.trim();
+
+      if (!nomeUsuario || !parentescoUsuario) {
+        alert("Por favor, digite seu nome e o parentesco antes de votar!");
+        return;
+      }
+
+      // salva no Realtime Database
+      const novoVotoRef = db.ref('votos').push();
+      novoVotoRef.set({
+        nome: nomeUsuario,
+        parentesco: parentescoUsuario,
+        voto: nome,
+        timestamp: Date.now()
+      }).then(() => {
+        alert(`Obrigado, ${nomeUsuario} (${parentescoUsuario}), pelo seu voto!`);
+        document.getElementById("nomeUsuario").value = "";
+        document.getElementById("parentescoUsuario").value = "";
+      }).catch(err => {
+        console.error("Erro ao gravar voto:", err);
+        alert("Erro ao enviar voto. Veja o console para detalhes.");
+      });
+    }
+
+    // Observador em tempo real (com tratamento quando não há dados)
+    const votosRef = db.ref('votos');
+    votosRef.on('value', (snapshot) => {
+      const dados = snapshot.val();
+
+      if (!dados) {
+        // não há votos ainda
+        document.getElementById('resultado').innerText = "Nenhum voto ainda";
+        return;
+      }
+
+      // transforma em array ordenado por timestamp (mais recente por cima)
+      const entries = Object.keys(dados).map(key => ({ id: key, ...dados[key] }));
+      entries.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      let votosRuan = 0, votosLiliane = 0;
+      const lista = [];
+
+      entries.forEach(item => {
+        const nome = item.nome || '—';
+        const parentesco = item.parentesco ? `(${item.parentesco})` : '';
+        const escolha = item.voto || '—';
+        lista.push(`${nome} ${parentesco} → ${escolha}`);
+        if (escolha === "Ruan") votosRuan++;
+        else if (escolha === "Liliane") votosLiliane++;
+      });
+
+      const total = votosRuan + votosLiliane;
+      const texto = `Ruan: ${votosRuan} votos\nLiliane: ${votosLiliane} votos\nTotal: ${total}\n\nLista de votos:\n${lista.join("\n")}`;
+      document.getElementById('resultado').innerText = texto;
+    }, (error) => {
+      console.error("Erro ao ler votos:", error);
+      document.getElementById('resultado').innerText = "Erro ao ler votos (veja console).";
+    });
+
+    // Mostra mensagem inicial enquanto carrega
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('resultado').innerText = 'Aguardando dados...';
+    });
+  </script>
+</body>
+</html>
